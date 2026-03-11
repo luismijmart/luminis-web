@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LUMINIS — Arquitectura</title>
+<meta name="description" content="Estudio de arquitectura enfocado en diseño, modelado BIM y desarrollo técnico de proyectos. Pilar, Zona Norte, Buenos Aires.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+/* ── Reset & Base ───────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #080808;
+  --bg2:        #0f0f0f;
+  --bg3:        #141414;
+  --bg4:        #1a1a1a;
+  --verde:      #1C3A2B;
+  --verde-mid:  #2E5E45;
+  --verde-brt:  #3D8A5F;
+  --verde-glow: #4CAF7D22;
+  --cream:      #EDE8DF;
+  --cream-dim:  #9E9B94;
+  --white:      #FFFFFF;
+  --line:       #202020;
+  --line2:      #2a2a2a;
+  --gris:       #555;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--cream);
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* Custom cursor */
+.cursor {
+  width: 8px; height: 8px;
+  background: var(--verde-brt);
+  border-radius: 50%;
+  position: fixed; top: 0; left: 0;
+  pointer-events: none; z-index: 9999;
+  transition: transform 0.15s ease;
+  mix-blend-mode: difference;
+}
+.cursor-ring {
+  width: 32px; height: 32px;
+  border: 1px solid var(--verde-mid);
+  border-radius: 50%;
+  position: fixed; top: 0; left: 0;
+  pointer-events: none; z-index: 9998;
+  transition: transform 0.4s cubic-bezier(.25,.46,.45,.94), width 0.3s, height 0.3s, border-color 0.3s;
+}
+
+/* Grain overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 1000;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  opacity: 0.03;
+}
+
+/* Vertical accent line */
+body::after {
+  content: '';
+  position: fixed; left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, transparent, var(--verde-mid) 20%, var(--verde-mid) 80%, transparent);
+  z-index: 900;
+  opacity: 0.6;
+}
+
+/* ── Typography ─────────────────────────────────────────── */
+.serif       { font-family: 'Cormorant Garamond', serif; }
+.mono        { font-family: 'DM Mono', monospace; }
+
+h1, h2, h3  { font-family: 'Cormorant Garamond', serif; font-weight: 300; line-height: 1.1; }
+
+.display {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(52px, 9vw, 100px);
+  font-weight: 300;
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+}
+.display em {
+  font-style: italic;
+  color: var(--verde-brt);
+}
+
+.label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--verde-mid);
+}
+
+/* ── Layout ─────────────────────────────────────────────── */
+.container { max-width: 1280px; margin: 0 auto; padding: 0 40px; }
+@media (max-width: 768px) { .container { padding: 0 24px; } }
+
+section { position: relative; }
+
+/* ── Animations ─────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes lineGrow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.8s cubic-bezier(.25,.46,.45,.94),
+              transform 0.8s cubic-bezier(.25,.46,.45,.94);
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ── Navbar ─────────────────────────────────────────────── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 800;
+  padding: 0 40px;
+  height: 64px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid transparent;
+  transition: background 0.4s, border-color 0.4s, backdrop-filter 0.4s;
+}
+nav.scrolled {
+  background: rgba(8,8,8,0.92);
+  border-color: var(--line);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+.nav-logo {
+  display: flex; flex-direction: column; gap: 1px;
+  text-decoration: none;
+}
+.nav-logo-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--white);
+  letter-spacing: 0.08em;
+}
+.nav-logo-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--verde-mid);
+}
+.nav-links {
+  display: flex; gap: 36px; list-style: none;
+}
+.nav-links a {
+  font-size: 13px;
+  color: var(--cream-dim);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+  transition: color 0.2s;
+  position: relative;
+}
+.nav-links a::after {
+  content: '';
+  position: absolute; bottom: -2px; left: 0; right: 0;
+  height: 1px;
+  background: var(--verde-brt);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(.25,.46,.45,.94);
+}
+.nav-links a:hover { color: var(--white); }
+.nav-links a:hover::after { transform: scaleX(1); }
+.nav-cta {
+  font-size: 12px;
+  padding: 8px 20px;
+  border: 1px solid var(--verde-mid);
+  color: var(--cream);
+  text-decoration: none;
+  letter-spacing: 0.06em;
+  transition: background 0.25s, color 0.25s, border-color 0.25s;
+}
+.nav-cta:hover {
+  background: var(--verde-mid);
+  color: var(--white);
+}
+@media (max-width: 768px) {
+  .nav-links { display: none; }
+}
+
+/* ── HERO ───────────────────────────────────────────────── */
+#inicio {
+  min-height: 100vh;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding-top: 64px;
+  overflow: hidden;
+}
+.hero-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: calc(100vh - 64px);
+  position: relative;
+}
+@media (max-width: 900px) {
+  .hero-inner { grid-template-columns: 1fr; }
+  .hero-img { display: none; }
+}
+
+.hero-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 60px 80px 40px;
+  position: relative;
+  z-index: 2;
+}
+
+.hero-eyebrow {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 32px;
+  animation: fadeIn 1s ease both;
+}
+.hero-eyebrow-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--verde-brt);
+  animation: pulse 2s ease infinite;
+}
+
+.hero-title {
+  margin-bottom: 28px;
+  animation: fadeUp 1s ease 0.1s both;
+}
+
+.hero-subtitle {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--cream-dim);
+  max-width: 420px;
+  margin-bottom: 48px;
+  animation: fadeUp 1s ease 0.2s both;
+}
+
+.hero-btns {
+  display: flex; gap: 16px; flex-wrap: wrap;
+  animation: fadeUp 1s ease 0.3s both;
+}
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px;
+  background: var(--verde-mid);
+  color: var(--white);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  transition: background 0.25s, transform 0.25s;
+}
+.btn-primary:hover {
+  background: var(--verde-brt);
+  transform: translateY(-1px);
+}
+.btn-outline {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 14px 28px;
+  border: 1px solid var(--line2);
+  color: var(--cream-dim);
+  text-decoration: none;
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  transition: border-color 0.25s, color 0.25s, transform 0.25s;
+}
+.btn-outline:hover {
+  border-color: var(--verde-mid);
+  color: var(--cream);
+  transform: translateY(-1px);
+}
+
+.hero-img {
+  position: relative;
+  overflow: hidden;
+}
+.hero-img-placeholder {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, var(--verde) 0%, #0a1a10 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+.hero-img-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--verde-mid) 0.5px, transparent 0.5px),
+    linear-gradient(90deg, var(--verde-mid) 0.5px, transparent 0.5px);
+  background-size: 60px 60px;
+  opacity: 0.08;
+}
+.hero-img-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+  text-align: center;
+  z-index: 1;
+}
+.hero-img-label span {
+  display: block;
+  font-size: 40px;
+  color: var(--verde);
+  margin-bottom: 12px;
+  font-family: 'Cormorant Garamond', serif;
+}
+.hero-img-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to right, var(--bg) 0%, transparent 20%);
+  z-index: 1;
+}
+
+/* Stats bar */
+.hero-stats {
+  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  animation: fadeIn 1s ease 0.5s both;
+}
+.hero-stat {
+  padding: 28px 40px;
+  border-right: 1px solid var(--line);
+}
+.hero-stat:last-child { border-right: none; }
+.hero-stat-num {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 36px;
+  font-weight: 300;
+  color: var(--white);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.hero-stat-label {
+  font-size: 11px;
+  color: var(--cream-dim);
+  letter-spacing: 0.04em;
+}
+
+/* ── CAPABILITIES ───────────────────────────────────────── */
+.capabilities {
+  padding: 120px 0;
+  border-top: 1px solid var(--line);
+}
+.capabilities-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 64px;
+  gap: 40px;
+}
+.capabilities-title {
+  font-size: clamp(36px, 5vw, 54px);
+}
+.capabilities-desc {
+  max-width: 360px;
+  font-size: 14px;
+  color: var(--cream-dim);
+  line-height: 1.7;
+}
+.caps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--line);
+}
+@media (max-width: 768px) {
+  .caps-grid { grid-template-columns: 1fr; }
+  .capabilities-header { flex-direction: column; align-items: flex-start; }
+}
+.cap-item {
+  background: var(--bg);
+  padding: 48px 40px;
+  position: relative;
+  transition: background 0.3s;
+}
+.cap-item:hover { background: var(--bg3); }
+.cap-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--verde-mid);
+  margin-bottom: 28px;
+  letter-spacing: 0.1em;
+}
+.cap-title {
+  font-size: 22px;
+  font-weight: 300;
+  margin-bottom: 16px;
+  color: var(--white);
+}
+.cap-desc {
+  font-size: 13px;
+  color: var(--cream-dim);
+  line-height: 1.7;
+}
+.cap-arrow {
+  position: absolute;
+  bottom: 40px; right: 40px;
+  color: var(--verde-mid);
+  font-size: 20px;
+  opacity: 0;
+  transform: translate(-4px, 4px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.cap-item:hover .cap-arrow {
+  opacity: 1;
+  transform: translate(0, 0);
+}
+
+/* ── FILOSOFIA ──────────────────────────────────────────── */
+.filosofia {
+  padding: 120px 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+.filosofia-inner {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 120px;
+  align-items: center;
+}
+@media (max-width: 900px) {
+  .filosofia-inner { grid-template-columns: 1fr; gap: 48px; }
+}
+.filosofia-quote {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 300;
+  line-height: 1.3;
+  color: var(--white);
+  position: relative;
+  padding-left: 32px;
+}
+.filosofia-quote::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--verde-brt), var(--verde-mid));
+}
+.filosofia-text {
+  font-size: 14px;
+  color: var(--cream-dim);
+  line-height: 1.8;
+  margin-bottom: 20px;
+}
+.filosofia-tag {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+}
+
+/* ── PROCESO ────────────────────────────────────────────── */
+.proceso {
+  padding: 120px 0;
+}
+.proceso-header {
+  margin-bottom: 80px;
+}
+.proceso-steps {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  position: relative;
+}
+@media (max-width: 900px) {
+  .proceso-steps { grid-template-columns: 1fr; gap: 0; }
+}
+/* Connector line */
+.proceso-steps::before {
+  content: '';
+  position: absolute;
+  top: 28px;
+  left: calc(10% + 20px);
+  right: calc(10% + 20px);
+  height: 1px;
+  background: linear-gradient(to right, var(--verde-mid), var(--verde), var(--verde-mid));
+  z-index: 0;
+}
+@media (max-width: 900px) {
+  .proceso-steps::before { display: none; }
+}
+.paso {
+  padding: 0 20px;
+  position: relative;
+  z-index: 1;
+}
+.paso-num-wrap {
+  width: 56px; height: 56px;
+  border: 1px solid var(--verde-mid);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 24px;
+  background: var(--bg);
+  transition: background 0.3s, border-color 0.3s;
+}
+.paso:hover .paso-num-wrap {
+  background: var(--verde-mid);
+  border-color: var(--verde-brt);
+}
+.paso-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--verde-mid);
+  transition: color 0.3s;
+}
+.paso:hover .paso-num { color: var(--white); }
+.paso-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--cream);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
+}
+.paso-desc {
+  font-size: 12px;
+  color: var(--cream-dim);
+  line-height: 1.6;
+}
+
+/* ── PROYECTOS DESTACADOS ───────────────────────────────── */
+.proyectos-dest {
+  padding: 120px 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--line);
+}
+.section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 64px;
+  gap: 40px;
+}
+.proj-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 768px) {
+  .proj-grid { grid-template-columns: 1fr; }
+  .section-header { flex-direction: column; align-items: flex-start; }
+}
+.proj-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg3);
+  text-decoration: none;
+  display: block;
+  group: true;
+}
+.proj-card-img {
+  height: 280px;
+  background: linear-gradient(135deg, var(--verde) 0%, #0d2018 100%);
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.6s cubic-bezier(.25,.46,.45,.94);
+}
+.proj-card:hover .proj-card-img {
+  transform: scale(1.03);
+}
+.proj-card-img-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--verde-mid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--verde-mid) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.07;
+}
+.proj-card-code {
+  position: absolute;
+  top: 20px; left: 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--verde-brt);
+  text-transform: uppercase;
+  background: rgba(8,8,8,0.7);
+  padding: 4px 10px;
+}
+.proj-card-bimx {
+  position: absolute;
+  top: 20px; right: 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--white);
+  background: var(--verde-mid);
+  padding: 4px 10px;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+.proj-card:hover .proj-card-bimx {
+  opacity: 1;
+  transform: translateY(0);
+}
+.proj-card-placeholder {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.proj-card-placeholder-txt {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 11px;
+  color: var(--verde-mid);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.proj-card-info {
+  padding: 24px;
+  border-top: 1px solid var(--line);
+}
+.proj-card-tipo {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.proj-card-title {
+  font-size: 18px;
+  color: var(--white);
+  margin-bottom: 6px;
+}
+.proj-card-meta {
+  font-size: 12px;
+  color: var(--cream-dim);
+}
+
+/* ── CTA BAND ───────────────────────────────────────────── */
+.cta-band {
+  padding: 120px 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.cta-band::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse 60% 80% at 50% 50%, var(--verde) 0%, transparent 70%);
+  opacity: 0.15;
+  pointer-events: none;
+}
+.cta-title {
+  font-size: clamp(36px, 6vw, 72px);
+  margin-bottom: 20px;
+}
+.cta-sub {
+  font-size: 15px;
+  color: var(--cream-dim);
+  margin-bottom: 48px;
+  max-width: 480px;
+  margin-left: auto; margin-right: auto;
+  line-height: 1.7;
+}
+
+/* ══════════════════════════════════════════════════════════
+   ESTUDIO
+══════════════════════════════════════════════════════════ */
+#estudio {
+  padding: 160px 0 120px;
+  border-top: 1px solid var(--line);
+}
+.estudio-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 100px;
+  margin-bottom: 100px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .estudio-grid { grid-template-columns: 1fr; gap: 48px; }
+}
+.estudio-text h2 {
+  font-size: clamp(40px, 5vw, 60px);
+  margin-bottom: 28px;
+  line-height: 1.15;
+}
+.estudio-text p {
+  font-size: 15px;
+  color: var(--cream-dim);
+  line-height: 1.8;
+  margin-bottom: 20px;
+}
+
+.principios {
+  display: flex; flex-direction: column; gap: 0;
+}
+.principio {
+  padding: 28px 0;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: 24px 1fr;
+  gap: 20px;
+  align-items: start;
+  transition: padding 0.3s;
+}
+.principio:first-child { border-top: 1px solid var(--line); }
+.principio:hover { padding-left: 8px; }
+.principio-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--verde-mid);
+  padding-top: 3px;
+}
+.principio-title {
+  font-size: 16px;
+  color: var(--white);
+  margin-bottom: 6px;
+  font-weight: 400;
+}
+.principio-desc {
+  font-size: 13px;
+  color: var(--cream-dim);
+  line-height: 1.65;
+}
+
+/* Luis card */
+.luis-card {
+  background: var(--bg3);
+  border: 1px solid var(--line2);
+  padding: 48px;
+  max-width: 900px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 48px;
+  align-items: center;
+}
+@media (max-width: 768px) {
+  .luis-card { grid-template-columns: 1fr; gap: 28px; }
+}
+.luis-avatar {
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--verde-mid), var(--verde));
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 28px;
+  color: var(--cream);
+  border: 1px solid var(--verde-mid);
+}
+.luis-name {
+  font-size: 26px;
+  color: var(--white);
+  margin-bottom: 4px;
+}
+.luis-role {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.luis-bio {
+  font-size: 13px;
+  color: var(--cream-dim);
+  line-height: 1.75;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SERVICIOS
+══════════════════════════════════════════════════════════ */
+#servicios {
+  padding: 160px 0 120px;
+  background: var(--bg2);
+  border-top: 1px solid var(--line);
+}
+.servicios-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1px;
+  background: var(--line);
+  margin-top: 64px;
+}
+@media (max-width: 768px) {
+  .servicios-grid { grid-template-columns: 1fr; }
+}
+.servicio {
+  background: var(--bg2);
+  padding: 56px 48px;
+  position: relative;
+  transition: background 0.35s;
+}
+.servicio:hover { background: var(--bg3); }
+.servicio-num {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--verde-mid);
+  letter-spacing: 0.1em;
+  margin-bottom: 20px;
+}
+.servicio-title {
+  font-size: 28px;
+  color: var(--white);
+  margin-bottom: 16px;
+}
+.servicio-desc {
+  font-size: 13.5px;
+  color: var(--cream-dim);
+  line-height: 1.7;
+  margin-bottom: 32px;
+}
+.servicio-incluye {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.servicio-items {
+  list-style: none;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.servicio-items li {
+  font-size: 13px;
+  color: var(--cream-dim);
+  display: flex; align-items: center; gap: 10px;
+}
+.servicio-items li::before {
+  content: '';
+  width: 16px; height: 1px;
+  background: var(--verde-mid);
+  flex-shrink: 0;
+}
+.servicio-tag {
+  position: absolute;
+  top: 56px; right: 48px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--verde-mid);
+  border: 1px solid var(--verde-mid);
+  padding: 4px 10px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.servicio:hover .servicio-tag { opacity: 1; }
+
+/* ══════════════════════════════════════════════════════════
+   PROYECTOS
+══════════════════════════════════════════════════════════ */
+#proyectos {
+  padding: 160px 0 120px;
+  border-top: 1px solid var(--line);
+}
+.proyectos-full {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--line);
+  margin-top: 64px;
+}
+.proyecto-row {
+  background: var(--bg);
+  display: grid;
+  grid-template-columns: 2fr 3fr;
+  min-height: 280px;
+  transition: background 0.3s;
+}
+.proyecto-row:hover { background: var(--bg3); }
+@media (max-width: 768px) {
+  .proyecto-row { grid-template-columns: 1fr; }
+}
+.proyecto-img {
+  background: linear-gradient(135deg, var(--verde) 0%, #0a1a10 100%);
+  position: relative;
+  overflow: hidden;
+  min-height: 200px;
+}
+.proyecto-img-grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--verde-mid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--verde-mid) 1px, transparent 1px);
+  background-size: 50px 50px;
+  opacity: 0.06;
+}
+.proyecto-img-label {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.proyecto-img-label span {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 11px;
+  color: var(--verde-mid);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.proyecto-info {
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-left: 1px solid var(--line);
+}
+.proyecto-codigo {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.proyecto-title {
+  font-size: 32px;
+  color: var(--white);
+  margin-bottom: 8px;
+}
+.proyecto-tipo {
+  font-size: 13px;
+  color: var(--cream-dim);
+  margin-bottom: 24px;
+  font-style: italic;
+  font-family: 'Cormorant Garamond', serif;
+}
+.proyecto-meta {
+  display: flex; gap: 32px; flex-wrap: wrap;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.proyecto-meta-item {
+  display: flex; flex-direction: column; gap: 2px;
+}
+.proyecto-meta-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+}
+.proyecto-meta-val {
+  font-size: 13px;
+  color: var(--cream);
+}
+.proyecto-bimx {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--verde-mid);
+  text-decoration: none;
+  border: 1px solid var(--verde-mid);
+  padding: 8px 16px;
+  transition: background 0.2s, color 0.2s;
+  align-self: flex-start;
+}
+.proyecto-bimx:hover {
+  background: var(--verde-mid);
+  color: var(--white);
+}
+
+/* ══════════════════════════════════════════════════════════
+   CONTACTO
+══════════════════════════════════════════════════════════ */
+#contacto {
+  padding: 160px 0 0;
+  border-top: 1px solid var(--line);
+  background: var(--bg2);
+}
+.contacto-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.3fr;
+  gap: 100px;
+  margin-bottom: 100px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .contacto-grid { grid-template-columns: 1fr; gap: 48px; }
+}
+.contacto-info h2 {
+  font-size: clamp(36px, 5vw, 54px);
+  margin-bottom: 20px;
+}
+.contacto-info p {
+  font-size: 14px;
+  color: var(--cream-dim);
+  line-height: 1.8;
+  margin-bottom: 48px;
+}
+.contacto-datos {
+  display: flex; flex-direction: column; gap: 0;
+}
+.contacto-dato {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.contacto-dato:first-child { border-top: 1px solid var(--line); }
+.contacto-dato-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+}
+.contacto-dato-val {
+  font-size: 13px;
+  color: var(--cream);
+}
+
+/* Form */
+.form-luminis {
+  display: flex; flex-direction: column; gap: 0;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+}
+.form-group {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--line);
+  border-top: none;
+  transition: border-color 0.2s;
+}
+.form-group:first-child, .form-row:first-child .form-group {
+  border-top: 1px solid var(--line);
+}
+.form-row .form-group:last-child {
+  border-left: none;
+}
+.form-group:focus-within {
+  border-color: var(--verde-mid);
+  z-index: 1;
+}
+.form-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  letter-spacing: 0.18em;
+  color: var(--verde-mid);
+  text-transform: uppercase;
+  padding: 14px 20px 0;
+}
+.form-input, .form-select, .form-textarea {
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 8px 20px 14px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--cream);
+  font-weight: 300;
+  width: 100%;
+  appearance: none;
+}
+.form-input::placeholder, .form-textarea::placeholder {
+  color: var(--gris);
+}
+.form-select option { background: var(--bg); }
+.form-textarea {
+  resize: none;
+  height: 120px;
+}
+.form-submit {
+  margin-top: 1px;
+  display: flex;
+}
+.form-submit button {
+  flex: 1;
+  padding: 20px;
+  background: var(--verde-mid);
+  border: none;
+  color: var(--white);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  cursor: none;
+  transition: background 0.25s;
+}
+.form-submit button:hover { background: var(--verde-brt); }
+
+/* ── FOOTER ─────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--line);
+  padding: 48px 0;
+}
+.footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+.footer-logo-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 18px;
+  color: var(--white);
+  letter-spacing: 0.06em;
+}
+.footer-tagline {
+  font-size: 11px;
+  color: var(--cream-dim);
+  margin-top: 2px;
+}
+.footer-copy {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--gris);
+  letter-spacing: 0.08em;
+}
+.footer-links {
+  display: flex; gap: 28px; list-style: none;
+}
+.footer-links a {
+  font-size: 12px;
+  color: var(--cream-dim);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.footer-links a:hover { color: var(--verde-brt); }
+
+/* ── Scroll indicator ───────────────────────────────────── */
+.progress-bar {
+  position: fixed;
+  top: 64px; left: 0;
+  height: 2px;
+  background: var(--verde-mid);
+  z-index: 801;
+  transition: width 0.1s;
+}
+</style>
+</head>
+<body>
+
+<!-- Cursor -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- Progress -->
+<div class="progress-bar" id="progress"></div>
+
+<!-- NAVBAR -->
+<nav id="navbar">
+  <a href="#inicio" class="nav-logo">
+    <span class="nav-logo-name">LUMINIS</span>
+    <span class="nav-logo-sub">Arquitectura</span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#inicio">Inicio</a></li>
+    <li><a href="#estudio">Estudio</a></li>
+    <li><a href="#servicios">Servicios</a></li>
+    <li><a href="#proyectos">Proyectos</a></li>
+    <li><a href="#contacto">Contacto</a></li>
+  </ul>
+  <a href="#contacto" class="nav-cta">Iniciar proyecto</a>
+</nav>
+
+<!-- ══ INICIO ═══════════════════════════════════════════════ -->
+<section id="inicio">
+  <div class="hero-inner">
+    <div class="hero-content">
+      <div class="hero-eyebrow">
+        <div class="hero-eyebrow-dot"></div>
+        <span class="label">Estudio de arquitectura · Pilar, Buenos Aires</span>
+      </div>
+      <h1 class="display hero-title">
+        Arquitectura<br>
+        <em>clara</em> para<br>
+        vivir mejor.
+      </h1>
+      <p class="hero-subtitle">
+        Diseño, modelado BIM y desarrollo técnico de proyectos arquitectónicos. Transformamos ideas en espacios construidos con claridad técnica y espacial.
+      </p>
+      <div class="hero-btns">
+        <a href="#proyectos" class="btn-primary">Ver proyectos &nbsp;→</a>
+        <a href="#contacto" class="btn-outline">Iniciar proyecto</a>
+      </div>
+    </div>
+    <div class="hero-img">
+      <div class="hero-img-placeholder">
+        <div class="hero-img-grid"></div>
+        <div class="hero-img-label">
+          <span>[ render ]</span>
+          imagen del proyecto
+        </div>
+      </div>
+      <div class="hero-img-overlay"></div>
+    </div>
+  </div>
+  <div class="hero-stats">
+    <div class="hero-stat">
+      <div class="hero-stat-num">BIM</div>
+      <div class="hero-stat-label">Metodología de trabajo</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">3</div>
+      <div class="hero-stat-label">Proyectos con modelo interactivo</div>
+    </div>
+    <div class="hero-stat">
+      <div class="hero-stat-num">100%</div>
+      <div class="hero-stat-label">Proyectos pensados para construirse</div>
+    </div>
+  </div>
+</section>
+
+<!-- Capabilities -->
+<section class="capabilities">
+  <div class="container">
+    <div class="capabilities-header reveal">
+      <h2 class="serif" style="font-size:clamp(36px,5vw,54px)">Qué hacemos</h2>
+      <p class="capabilities-desc">Tres líneas de trabajo que pueden operarse de forma individual o integrada según las necesidades del proyecto.</p>
+    </div>
+    <div class="caps-grid">
+      <div class="cap-item reveal reveal-delay-1">
+        <div class="cap-num">01</div>
+        <h3 class="cap-title">Diseño arquitectónico</h3>
+        <p class="cap-desc">Desarrollo de propuestas espaciales que organizan con claridad las necesidades de cada proyecto. Cada decisión busca equilibrio entre funcionalidad, materialidad y experiencia espacial.</p>
+        <div class="cap-arrow">↗</div>
+      </div>
+      <div class="cap-item reveal reveal-delay-2">
+        <div class="cap-num">02</div>
+        <h3 class="cap-title">Desarrollo técnico BIM</h3>
+        <p class="cap-desc">El proyecto se desarrolla mediante modelado BIM, lo que permite una definición técnica precisa y una mejor coordinación de los elementos constructivos. Reduce errores antes de construir.</p>
+        <div class="cap-arrow">↗</div>
+      </div>
+      <div class="cap-item reveal reveal-delay-3">
+        <div class="cap-num">03</div>
+        <h3 class="cap-title">Visualización arquitectónica</h3>
+        <p class="cap-desc">Las representaciones 3D permiten comprender el espacio antes de que exista. Renders y modelos tridimensionales para evaluar diseño, materialidad y atmósfera espacial.</p>
+        <div class="cap-arrow">↗</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Filosofía -->
+<section class="filosofia">
+  <div class="container">
+    <div class="filosofia-inner">
+      <div class="filosofia-quote reveal">
+        "La arquitectura no debería ser un proceso confuso o inaccesible."
+      </div>
+      <div class="reveal reveal-delay-2">
+        <p class="filosofia-text">En muchos proyectos el problema no es la falta de ideas, sino la falta de claridad en el proceso. LUMINIS trabaja para que cada decisión sea comprensible, coherente y técnicamente viable.</p>
+        <p class="filosofia-text">El objetivo es simple: crear espacios que funcionen bien, se entiendan bien y se construyan bien.</p>
+        <div class="filosofia-tag">
+          <span>—</span>
+          <span>Luminis Arquitectura</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Proceso -->
+<section class="proceso">
+  <div class="container">
+    <div class="proceso-header reveal">
+      <span class="label">Cómo trabajamos</span>
+      <h2 class="serif" style="font-size:clamp(36px,5vw,54px); margin-top:12px">Proceso de trabajo</h2>
+    </div>
+    <div class="proceso-steps">
+      <div class="paso reveal reveal-delay-1">
+        <div class="paso-num-wrap"><span class="paso-num">01</span></div>
+        <div class="paso-title">Análisis</div>
+        <div class="paso-desc">Condiciones del terreno, necesidades del cliente y posibilidades reales del proyecto.</div>
+      </div>
+      <div class="paso reveal reveal-delay-2">
+        <div class="paso-num-wrap"><span class="paso-num">02</span></div>
+        <div class="paso-title">Anteproyecto</div>
+        <div class="paso-desc">Organización espacial y propuesta arquitectónica general mediante esquemas y modelos 3D.</div>
+      </div>
+      <div class="paso reveal reveal-delay-3">
+        <div class="paso-num-wrap"><span class="paso-num">03</span></div>
+        <div class="paso-title">Desarrollo técnico</div>
+        <div class="paso-desc">Modelado BIM completo y documentación técnica necesaria para la construcción.</div>
+      </div>
+      <div class="paso reveal reveal-delay-4">
+        <div class="paso-num-wrap"><span class="paso-num">04</span></div>
+        <div class="paso-title">Visualización</div>
+        <div class="paso-desc">Imágenes y modelos que permiten comprender el proyecto antes de su ejecución.</div>
+      </div>
+      <div class="paso reveal reveal-delay-4">
+        <div class="paso-num-wrap"><span class="paso-num">05</span></div>
+        <div class="paso-title">Construcción</div>
+        <div class="paso-desc">Coordinación técnica y acompañamiento durante la obra.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Proyectos destacados -->
+<section class="proyectos-dest">
+  <div class="container">
+    <div class="section-header reveal">
+      <div>
+        <span class="label">Portfolio</span>
+        <h2 class="serif" style="font-size:clamp(36px,5vw,54px); margin-top:12px">Proyectos recientes</h2>
+      </div>
+      <a href="#proyectos" class="btn-outline">Ver todos →</a>
+    </div>
+    <div class="proj-grid">
+      <a href="#proyectos" class="proj-card reveal reveal-delay-1">
+        <div class="proj-card-img">
+          <div class="proj-card-img-grid"></div>
+          <div class="proj-card-code">M1618</div>
+          <div class="proj-card-bimx">BIMx ↗</div>
+          <div class="proj-card-placeholder">
+            <span class="proj-card-placeholder-txt">render del proyecto</span>
+          </div>
+        </div>
+        <div class="proj-card-info">
+          <div class="proj-card-tipo">Intervención integral</div>
+          <h3 class="proj-card-title serif">Unidad residencial + espacios comunes</h3>
+          <div class="proj-card-meta">Belgrano, CABA · 2023</div>
+        </div>
+      </a>
+      <a href="#proyectos" class="proj-card reveal reveal-delay-2">
+        <div class="proj-card-img">
+          <div class="proj-card-img-grid"></div>
+          <div class="proj-card-code">R466</div>
+          <div class="proj-card-bimx">BIMx ↗</div>
+          <div class="proj-card-placeholder">
+            <span class="proj-card-placeholder-txt">render del proyecto</span>
+          </div>
+        </div>
+        <div class="proj-card-info">
+          <div class="proj-card-tipo">Desarrollo técnico y coordinación</div>
+          <h3 class="proj-card-title serif">Edificio — documentación ejecutiva</h3>
+          <div class="proj-card-meta">Buenos Aires · 2024</div>
+        </div>
+      </a>
+      <a href="#proyectos" class="proj-card reveal reveal-delay-3">
+        <div class="proj-card-img">
+          <div class="proj-card-img-grid"></div>
+          <div class="proj-card-code">DR992</div>
+          <div class="proj-card-bimx">BIMx ↗</div>
+          <div class="proj-card-placeholder">
+            <span class="proj-card-placeholder-txt">render del proyecto</span>
+          </div>
+        </div>
+        <div class="proj-card-info">
+          <div class="proj-card-tipo">Reconfiguración arquitectónica</div>
+          <h3 class="proj-card-title serif">Edificio sobre proyecto aprobado</h3>
+          <div class="proj-card-meta">Buenos Aires · 2024</div>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- CTA band -->
+<section class="cta-band">
+  <div class="container">
+    <h2 class="display reveal">Cada proyecto comienza<br>con una <em>conversación.</em></h2>
+    <p class="cta-sub reveal reveal-delay-2">Si estás pensando en construir, reformar o desarrollar un proyecto, el primer paso es entender el contexto y las posibilidades reales.</p>
+    <a href="#contacto" class="btn-primary reveal reveal-delay-3">Contactar &nbsp;→</a>
+  </div>
+</section>
+
+<!-- ══ ESTUDIO ════════════════════════════════════════════════ -->
+<section id="estudio">
+  <div class="container">
+    <span class="label reveal">Sobre el estudio</span>
+    <div class="estudio-grid" style="margin-top:40px">
+      <div class="estudio-text reveal">
+        <h2 class="serif">Luminis es arquitectura con claridad.</h2>
+        <p>Un estudio enfocado en el desarrollo de proyectos arquitectónicos claros, precisos y técnicamente viables.</p>
+        <p>El nombre proviene de la idea de luz y claridad, principios que orientan tanto el diseño espacial como el proceso técnico del proyecto.</p>
+        <p style="color:var(--cream-dim);font-style:italic;font-family:'Cormorant Garamond',serif;font-size:16px;line-height:1.6">La arquitectura no debería ser un proceso confuso o inaccesible. Un buen proyecto debe poder explicarse, comprenderse y construirse con coherencia.</p>
+      </div>
+      <div class="principios reveal reveal-delay-2">
+        <div class="principio">
+          <span class="principio-num">01</span>
+          <div>
+            <div class="principio-title">Claridad espacial</div>
+            <div class="principio-desc">Los espacios deben organizarse de manera lógica y funcional. La arquitectura se construye a partir de relaciones claras entre las distintas áreas del proyecto.</div>
+          </div>
+        </div>
+        <div class="principio">
+          <span class="principio-num">02</span>
+          <div>
+            <div class="principio-title">Claridad técnica</div>
+            <div class="principio-desc">Un proyecto bien desarrollado técnicamente reduce problemas durante la construcción. El uso de herramientas BIM permite anticipar conflictos y mejorar la coordinación.</div>
+          </div>
+        </div>
+        <div class="principio">
+          <span class="principio-num">03</span>
+          <div>
+            <div class="principio-title">Claridad en el proceso</div>
+            <div class="principio-desc">Cada etapa del proyecto debe ser comprensible para el cliente. El proceso de diseño se organiza de manera transparente, permitiendo tomar decisiones informadas.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="luis-card reveal">
+      <div class="luis-avatar">LJ</div>
+      <div>
+        <h3 class="luis-name serif">Luis Jiménez</h3>
+        <div class="luis-role">Proyectista arquitectónico · Modelador BIM</div>
+        <p class="luis-bio">Participa en el desarrollo de proyectos arquitectónicos, modelado digital y coordinación técnica de documentación para obra. Su trabajo combina herramientas digitales, pensamiento técnico y una búsqueda constante por simplificar procesos complejos dentro de la arquitectura.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ SERVICIOS ═════════════════════════════════════════════ -->
+<section id="servicios">
+  <div class="container">
+    <div class="section-header reveal">
+      <div>
+        <span class="label">Cómo trabajar con nosotros</span>
+        <h2 class="serif" style="font-size:clamp(36px,5vw,54px); margin-top:12px">Servicios</h2>
+      </div>
+    </div>
+    <div class="servicios-grid">
+      <div class="servicio reveal">
+        <div class="servicio-num">01</div>
+        <h3 class="servicio-title serif">Anteproyecto</h3>
+        <p class="servicio-desc">Etapa inicial del proyecto donde se define la organización general del espacio. Ideal para transformar una idea en una propuesta clara antes de avanzar hacia el desarrollo completo.</p>
+        <div class="servicio-incluye">Incluye</div>
+        <ul class="servicio-items">
+          <li>Análisis del terreno o espacio existente</li>
+          <li>Relevamiento de necesidades</li>
+          <li>Organización funcional y propuesta volumétrica</li>
+          <li>Modelado 3D e imágenes preliminares</li>
+          <li>Reunión de presentación y ajuste</li>
+        </ul>
+        <div class="servicio-tag">Consultar →</div>
+      </div>
+      <div class="servicio reveal reveal-delay-2">
+        <div class="servicio-num">02</div>
+        <h3 class="servicio-title serif">Proyecto arquitectónico BIM</h3>
+        <p class="servicio-desc">Desarrollo técnico completo del proyecto necesario para su construcción. Incluye toda la documentación ejecutiva con metodología BIM.</p>
+        <div class="servicio-incluye">Incluye</div>
+        <ul class="servicio-items">
+          <li>Modelado BIM completo del proyecto</li>
+          <li>Plantas, cortes y elevaciones</li>
+          <li>Definición de materialidad</li>
+          <li>Documentación técnica para obra</li>
+          <li>Coordinación básica de elementos constructivos</li>
+        </ul>
+        <div class="servicio-tag">Consultar →</div>
+      </div>
+      <div class="servicio reveal">
+        <div class="servicio-num">03</div>
+        <h3 class="servicio-title serif">Visualización arquitectónica</h3>
+        <p class="servicio-desc">Representación tridimensional de proyectos para comprender el espacio antes de su construcción. Para proyectos propios o de otros profesionales.</p>
+        <div class="servicio-incluye">Incluye</div>
+        <ul class="servicio-items">
+          <li>Modelado 3D detallado</li>
+          <li>Renders exteriores e interiores</li>
+          <li>Definición de atmósfera y materialidad</li>
+          <li>Imágenes de alta calidad para presentación</li>
+        </ul>
+        <div class="servicio-tag">Consultar →</div>
+      </div>
+      <div class="servicio reveal reveal-delay-2">
+        <div class="servicio-num">04</div>
+        <h3 class="servicio-title serif">Asesoría arquitectónica</h3>
+        <p class="servicio-desc">Orientación profesional para evaluar decisiones relacionadas con arquitectura y construcción. Ideal para decisiones previas a la inversión.</p>
+        <div class="servicio-incluye">Ideal para</div>
+        <ul class="servicio-items">
+          <li>Evaluación de terrenos</li>
+          <li>Análisis de viviendas existentes</li>
+          <li>Orientación para reformas o ampliaciones</li>
+          <li>Revisión conceptual de proyectos</li>
+        </ul>
+        <div class="servicio-tag">Consultar →</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PROYECTOS ══════════════════════════════════════════════ -->
+<section id="proyectos">
+  <div class="container">
+    <div class="section-header reveal">
+      <div>
+        <span class="label">Portfolio</span>
+        <h2 class="serif" style="font-size:clamp(36px,5vw,54px); margin-top:12px">Proyectos</h2>
+      </div>
+    </div>
+    <p class="reveal" style="color:var(--cream-dim);font-size:14px;max-width:600px;margin-bottom:0;line-height:1.7">Cada proyecto representa una búsqueda específica de organización espacial, materialidad y relación con el contexto. Desarrollados con diseño conceptual, desarrollo técnico BIM y visualización arquitectónica.</p>
+    <div class="proyectos-full">
+      <div class="proyecto-row reveal">
+        <div class="proyecto-img">
+          <div class="proyecto-img-grid"></div>
+          <div class="proyecto-img-label"><span>render / fotos</span></div>
+        </div>
+        <div class="proyecto-info">
+          <div>
+            <div class="proyecto-codigo">M1618</div>
+            <h3 class="proyecto-title serif">Intervención integral</h3>
+            <p class="proyecto-tipo">Unidad residencial + espacios comunes</p>
+            <p style="font-size:13px;color:var(--cream-dim);line-height:1.7">Desarrollo completo del segundo piso adquirido por el cliente. Definición de organización espacial y características de la unidad. Terminaciones y definición técnica de espacios comunes del edificio.</p>
+          </div>
+          <div>
+            <div class="proyecto-meta">
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Ubicación</span>
+                <span class="proyecto-meta-val">Belgrano, CABA</span>
+              </div>
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Año</span>
+                <span class="proyecto-meta-val">2023</span>
+              </div>
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Tipo</span>
+                <span class="proyecto-meta-val">Residencial</span>
+              </div>
+            </div>
+            <a href="https://bimx.graphisoft.com/model/43cfcda8-2783-4dd3-829b-ca4eb556277f" target="_blank" class="proyecto-bimx">Ver modelo BIMx ↗</a>
+          </div>
+        </div>
+      </div>
+      <div class="proyecto-row reveal">
+        <div class="proyecto-img">
+          <div class="proyecto-img-grid"></div>
+          <div class="proyecto-img-label"><span>render / fotos</span></div>
+        </div>
+        <div class="proyecto-info">
+          <div>
+            <div class="proyecto-codigo">R466</div>
+            <h3 class="proyecto-title serif">Desarrollo técnico y coordinación</h3>
+            <p class="proyecto-tipo">Proyecto de edificio — documentación ejecutiva</p>
+            <p style="font-size:13px;color:var(--cream-dim);line-height:1.7">Participación desde etapa de anteproyecto y presentación municipal hasta el desarrollo técnico completo. Coordinación de rubros y preparación de documentación para licitación.</p>
+          </div>
+          <div>
+            <div class="proyecto-meta">
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Ubicación</span>
+                <span class="proyecto-meta-val">Buenos Aires</span>
+              </div>
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Año</span>
+                <span class="proyecto-meta-val">2024</span>
+              </div>
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Tipo</span>
+                <span class="proyecto-meta-val">Edificio</span>
+              </div>
+            </div>
+            <a href="https://bimx.graphisoft.com/model/299b3750-9691-4d1e-89af-9352764493f9" target="_blank" class="proyecto-bimx">Ver modelo BIMx ↗</a>
+          </div>
+        </div>
+      </div>
+      <div class="proyecto-row reveal">
+        <div class="proyecto-img">
+          <div class="proyecto-img-grid"></div>
+          <div class="proyecto-img-label"><span>render / fotos</span></div>
+        </div>
+        <div class="proyecto-info">
+          <div>
+            <div class="proyecto-codigo">DR992</div>
+            <h3 class="proyecto-title serif">Reconfiguración sobre proyecto aprobado</h3>
+            <p class="proyecto-tipo">Edificio — reconfiguración arquitectónica y coordinación técnica</p>
+            <p style="font-size:13px;color:var(--cream-dim);line-height:1.7">Trabajo sobre un edificio con proyecto previamente aprobado. Reconfiguración arquitectónica, coordinación espacial de rubros, definición de espacios comunes y material para presentación comercial.</p>
+          </div>
+          <div>
+            <div class="proyecto-meta">
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Ubicación</span>
+                <span class="proyecto-meta-val">Buenos Aires</span>
+              </div>
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Año</span>
+                <span class="proyecto-meta-val">2024</span>
+              </div>
+              <div class="proyecto-meta-item">
+                <span class="proyecto-meta-label">Tipo</span>
+                <span class="proyecto-meta-val">Edificio</span>
+              </div>
+            </div>
+            <a href="https://bimx.graphisoft.com/model/f695fa89-b8a5-44a3-abb5-6cb89f77d2c3" target="_blank" class="proyecto-bimx">Ver modelo BIMx ↗</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CONTACTO ═══════════════════════════════════════════════ -->
+<section id="contacto">
+  <div class="container">
+    <div class="contacto-grid">
+      <div class="contacto-info reveal">
+        <span class="label">Hablemos</span>
+        <h2 class="serif" style="margin-top:16px">Iniciar un proyecto</h2>
+        <p>Si estás pensando en construir, reformar o desarrollar un proyecto, podés enviar una consulta inicial. El primer paso suele ser una conversación para comprender el contexto y las necesidades reales.</p>
+        <div class="contacto-datos">
+          <div class="contacto-dato">
+            <span class="contacto-dato-label">WhatsApp</span>
+            <span class="contacto-dato-val">wa.me/5491160375571</span>
+          </div>
+          <div class="contacto-dato">
+            <span class="contacto-dato-label">Instagram</span>
+            <span class="contacto-dato-val">@luminis.ar</span>
+          </div>
+          <div class="contacto-dato">
+            <span class="contacto-dato-label">Zona de obra</span>
+            <span class="contacto-dato-val">Pilar y Zona Norte</span>
+          </div>
+          <div class="contacto-dato">
+            <span class="contacto-dato-label">Proyectos</span>
+            <span class="contacto-dato-val">Alcance nacional</span>
+          </div>
+        </div>
+      </div>
+      <div class="reveal reveal-delay-2">
+        <form class="form-luminis" onsubmit="return false">
+          <div class="form-row">
+            <div class="form-group" style="border-top:1px solid var(--line)">
+              <label class="form-label">Nombre *</label>
+              <input type="text" class="form-input" placeholder="Tu nombre">
+            </div>
+            <div class="form-group" style="border-top:1px solid var(--line); border-left:none">
+              <label class="form-label">Email *</label>
+              <input type="email" class="form-input" placeholder="tu@email.com">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Teléfono</label>
+              <input type="tel" class="form-input" placeholder="WhatsApp">
+            </div>
+            <div class="form-group" style="border-left:none">
+              <label class="form-label">Tipo de proyecto</label>
+              <select class="form-select form-input">
+                <option value="" disabled selected>Seleccionar</option>
+                <option>Vivienda nueva</option>
+                <option>Reforma</option>
+                <option>Ampliación</option>
+                <option>Visualización arquitectónica</option>
+                <option>Asesoría</option>
+                <option>Otro</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Mensaje</label>
+            <textarea class="form-textarea" placeholder="Contanos sobre tu proyecto, terreno o idea…"></textarea>
+          </div>
+          <div class="form-submit">
+            <button type="submit">Enviar consulta &nbsp;→</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <footer>
+    <div class="container footer-inner">
+      <div>
+        <div class="footer-logo-name">LUMINIS</div>
+        <div class="footer-tagline">Arquitectura · Pilar, Buenos Aires</div>
+      </div>
+      <ul class="footer-links">
+        <li><a href="#inicio">Inicio</a></li>
+        <li><a href="#estudio">Estudio</a></li>
+        <li><a href="#servicios">Servicios</a></li>
+        <li><a href="#proyectos">Proyectos</a></li>
+        <li><a href="#contacto">Contacto</a></li>
+      </ul>
+      <div class="footer-copy">© 2026 LUMINIS</div>
+    </div>
+  </footer>
+</section>
+
+<script>
+// Cursor
+const cursor = document.getElementById('cursor');
+const ring   = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', e => {
+  mx = e.clientX; my = e.clientY;
+  cursor.style.transform = `translate(${mx - 4}px, ${my - 4}px)`;
+});
+
+function animRing() {
+  rx += (mx - rx) * 0.12;
+  ry += (my - ry) * 0.12;
+  ring.style.transform = `translate(${rx - 16}px, ${ry - 16}px)`;
+  requestAnimationFrame(animRing);
+}
+animRing();
+
+document.querySelectorAll('a, button').forEach(el => {
+  el.addEventListener('mouseenter', () => {
+    ring.style.width = '48px';
+    ring.style.height = '48px';
+    ring.style.borderColor = 'var(--verde-brt)';
+  });
+  el.addEventListener('mouseleave', () => {
+    ring.style.width = '32px';
+    ring.style.height = '32px';
+    ring.style.borderColor = 'var(--verde-mid)';
+  });
+});
+
+// Navbar scroll
+const nav = document.getElementById('navbar');
+window.addEventListener('scroll', () => {
+  nav.classList.toggle('scrolled', window.scrollY > 60);
+});
+
+// Progress bar
+const progress = document.getElementById('progress');
+window.addEventListener('scroll', () => {
+  const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+  progress.style.width = pct + '%';
+});
+
+// Reveal on scroll
+const reveals = document.querySelectorAll('.reveal');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.classList.add('visible');
+      observer.unobserve(e.target);
+    }
+  });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+
+reveals.forEach(el => observer.observe(el));
+
+// Active nav link
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.nav-links a');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sections.forEach(s => {
+    if (window.scrollY >= s.offsetTop - 100) current = s.id;
+  });
+  navLinks.forEach(a => {
+    a.style.color = a.getAttribute('href') === '#' + current ? 'var(--white)' : '';
+  });
+});
+</script>
+</body>
+</html>
